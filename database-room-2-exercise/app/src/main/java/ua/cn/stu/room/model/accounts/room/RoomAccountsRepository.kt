@@ -14,6 +14,7 @@ import ua.cn.stu.room.model.accounts.entities.AccountFullData
 import ua.cn.stu.room.model.accounts.entities.SignUpData
 import ua.cn.stu.room.model.accounts.room.entities.AccountDbEntity
 import ua.cn.stu.room.model.accounts.room.entities.AccountUpdateUsernameTuple
+import ua.cn.stu.room.model.boxes.entities.BoxAndSettings
 import ua.cn.stu.room.model.room.wrapSQLiteException
 import ua.cn.stu.room.model.settings.AppSettings
 import ua.cn.stu.room.utils.AsyncLoader
@@ -33,18 +34,19 @@ class RoomAccountsRepository(
         return appSettings.getCurrentAccountId() != AppSettings.NO_ACCOUNT_ID
     }
 
-    override suspend fun signIn(email: String, password: CharArray) = wrapSQLiteException(ioDispatcher) {
-        if (email.isBlank()) throw EmptyFieldException(Field.Email)
-        if (password.isEmpty()) throw EmptyFieldException(Field.Password)
+    override suspend fun signIn(email: String, password: CharArray) =
+        wrapSQLiteException(ioDispatcher) {
+            if (email.isBlank()) throw EmptyFieldException(Field.Email)
+            if (password.isEmpty()) throw EmptyFieldException(Field.Password)
 
-        delay(1000)
+            delay(1000)
 
-        val accountId = findAccountIdByEmailAndPassword(email, password)
-        appSettings.setCurrentAccountId(accountId)
-        currentAccountIdFlow.get().value = AccountId(accountId)
+            val accountId = findAccountIdByEmailAndPassword(email, password)
+            appSettings.setCurrentAccountId(accountId)
+            currentAccountIdFlow.get().value = AccountId(accountId)
 
-        return@wrapSQLiteException
-    }
+            return@wrapSQLiteException
+        }
 
     override suspend fun signUp(signUpData: SignUpData) = wrapSQLiteException(ioDispatcher) {
         signUpData.validate()
@@ -69,22 +71,37 @@ class RoomAccountsRepository(
             .flowOn(ioDispatcher)
     }
 
-    override suspend fun updateAccountUsername(newUsername: String) = wrapSQLiteException(ioDispatcher) {
-        if (newUsername.isBlank()) throw EmptyFieldException(Field.Username)
-        delay(1000)
-        val accountId = appSettings.getCurrentAccountId()
-        if (accountId == AppSettings.NO_ACCOUNT_ID) throw AuthException()
+    override suspend fun updateAccountUsername(newUsername: String) =
+        wrapSQLiteException(ioDispatcher) {
+            if (newUsername.isBlank()) throw EmptyFieldException(Field.Username)
+            delay(1000)
+            val accountId = appSettings.getCurrentAccountId()
+            if (accountId == AppSettings.NO_ACCOUNT_ID) throw AuthException()
 
-        updateUsernameForAccountId(accountId, newUsername)
+            updateUsernameForAccountId(accountId, newUsername)
 
-        currentAccountIdFlow.get().value = AccountId(accountId)
-        return@wrapSQLiteException
-    }
+            currentAccountIdFlow.get().value = AccountId(accountId)
+            return@wrapSQLiteException
+        }
 
     override suspend fun getAllData(): Flow<List<AccountFullData>> {
-        // todo #21: fetch all data from the database and convert it to AccountFullData for usage
-        //           in view-models and fragments.
-        return flowOf(emptyList())
+        val account = getAccount().first()
+        if (account == null || !account.isAdmin()) throw  AuthException()
+        return accountsDao.getAllData()
+            .map { accountAndSettings ->
+                accountAndSettings.map { accountAndAllSettingsTuple ->
+                    AccountFullData(
+                        account = accountAndAllSettingsTuple.accountDbEntity.toAccount(),
+                        boxesAndSettings = accountAndAllSettingsTuple.settings.map {
+                            BoxAndSettings(
+                                box = it.boxDbEntity.toBox(),
+                                isActive = it.accountBoxSettingDbEntity.settings.isActive
+                            )
+                        }
+                    )
+
+                }
+            }
     }
 
     private suspend fun findAccountIdByEmailAndPassword(email: String, password: CharArray): Long {
