@@ -19,8 +19,9 @@ object Repositories {
     // -- stuffs
 
     private val database: AppDatabase by lazy<AppDatabase> {
-        TODO("#21: Create an AppDatabase instance by using Room.databaseBuilder static method. " +
-                "Use createFromAssets method to initialize a new database from the pre-packaged SQLite file from assets")
+        Room.databaseBuilder(applicationContext, AppDatabase::class.java, "database.db")
+            .createFromAsset("initial_database.db")
+            .build()
     }
 
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -32,11 +33,19 @@ object Repositories {
     // --- repositories
 
     val accountsRepository: AccountsRepository by lazy {
-        RoomAccountsRepository(TODO("#22: Use AccountsDao here from AppDatabase"), appSettings, ioDispatcher)
+        RoomAccountsRepository(
+            database.getAccountDao(),
+            appSettings,
+            ioDispatcher
+        )
     }
 
     val boxesRepository: BoxesRepository by lazy {
-        RoomBoxesRepository(accountsRepository, TODO("#23: Use BoxesDao here from AppDatabase"), ioDispatcher)
+        RoomBoxesRepository(
+            accountsRepository,
+            database.getBoxesDao(),
+            ioDispatcher
+        )
     }
 
     /**

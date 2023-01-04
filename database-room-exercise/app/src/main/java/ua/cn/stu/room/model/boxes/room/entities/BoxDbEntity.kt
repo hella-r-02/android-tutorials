@@ -1,12 +1,23 @@
 package ua.cn.stu.room.model.boxes.room.entities
 
+import android.graphics.Color
+import androidx.room.ColumnInfo
+import androidx.room.Entity
+import androidx.room.PrimaryKey
 import ua.cn.stu.room.model.boxes.entities.Box
 
-// todo #15: Define BoxDbEntity
-//          - fields: id, colorName, colorValue.
-//          - add toBox() method for mapping BoxDbEntity instances to Box instances.
-//          - hint: use the same annotations as for AccountDbEntity (@Entity, @PrimaryKey, @ColumnInfo).
-//          - DO NOT FORGET to add this entity to the @Database annotation of AppDatabase class
-class BoxDbEntity {
-    fun toBox(): Box = TODO()
+
+@Entity(
+    tableName = "boxes",
+)
+data class BoxDbEntity(
+    @PrimaryKey @ColumnInfo(name = "id") val id: Long,
+    @ColumnInfo(name = "color_name") val colorName: String,
+    @ColumnInfo(name = "color_value") val colorValue: String
+) {
+    fun toBox(): Box = Box(
+        id = id,
+        colorName = colorName,
+        colorValue = Color.parseColor(colorValue)
+    )
 }

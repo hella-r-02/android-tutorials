@@ -2,10 +2,12 @@ package ua.cn.stu.room.model.boxes.room
 
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.*
+import ua.cn.stu.room.model.AuthException
 import ua.cn.stu.room.model.accounts.AccountsRepository
 import ua.cn.stu.room.model.boxes.BoxesRepository
 import ua.cn.stu.room.model.boxes.entities.Box
 import ua.cn.stu.room.model.boxes.entities.BoxAndSettings
+import ua.cn.stu.room.model.boxes.room.entities.AccountBoxSettingDbEntity
 import ua.cn.stu.room.model.room.wrapSQLiteException
 
 class RoomBoxesRepository(
@@ -38,12 +40,28 @@ class RoomBoxesRepository(
     }
 
     private fun queryBoxesAndSettings(accountId: Long): Flow<List<BoxAndSettings>> {
-        TODO("#19: fetch boxes and settings from BoxesDao and map them to the " +
-                "list of BoxAbdSettings instances")
+        return boxesDao.getBoxesAndSettings(accountId)
+            .map { entities ->
+                entities.map {
+                    val boxEntity = it.key
+                    val settingsEntity = it.value
+                    BoxAndSettings(
+                        boxEntity.toBox(),
+                        settingsEntity == null || settingsEntity.isActive
+                    )
+                }
+            }
     }
 
     private suspend fun setActiveFlagForBox(box: Box, isActive: Boolean) {
-        // todo #20: get the current account (throw AuthException if there is no logged-in user)
-        //           and then use BoxesDao to activate/deactivate the box for the current account
+        val account = accountsRepository.getAccount().first() ?: throw AuthException()
+        boxesDao.setActiveFlagForBox(
+            AccountBoxSettingDbEntity(
+                accountId = account.id,
+                boxId = box.id,
+                isActive = isActive
+            )
+        )
+
     }
 }
